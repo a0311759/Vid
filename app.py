@@ -21,9 +21,10 @@ def save_data(data):
 st.set_page_config(page_title="Chat Room", layout="centered")
 st.markdown("<h1 style='text-align:center;'>Chat Room App</h1>", unsafe_allow_html=True)
 
-# Session state for login
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+# Initialize session state safely
+for key in ["logged_in", "room_code", "username"]:
+    if key not in st.session_state:
+        st.session_state[key] = False if key == "logged_in" else ""
 
 if not st.session_state.logged_in:
     with st.container():
@@ -31,29 +32,25 @@ if not st.session_state.logged_in:
             <div style='background-color:#f0f2f6;padding:30px;border-radius:10px;text-align:center;'>
             <h3>Enter Room</h3>
         """, unsafe_allow_html=True)
-        room_code = st.text_input("Room Code", key="room_code_input")
-        username = st.text_input("Your Name", key="username_input")
-        login = st.button("Join Chat")
-
-        if login and room_code and username:
-            data = load_data()
-            if room_code not in data:
-                data[room_code] = {
-                    "users": [],
-                    "messages": []
-                }
-
-            if username not in data[room_code]["users"]:
-                if len(data[room_code]["users"]) < 2:
-                    data[room_code]["users"].append(username)
-                    save_data(data)
-                    st.session_state.logged_in = True
-                    st.session_state.room_code = room_code
-                    st.session_state.username = username
-                    st.experimental_rerun()
-                else:
-                    st.error("Room is full. Only 2 users allowed.")
+        
+        room_code = st.text_input("Room Code")
+        username = st.text_input("Your Name")
+        
+        if st.button("Join Chat"):
+            if not room_code or not username:
+                st.warning("Please fill in both fields.")
             else:
+                data = load_data()
+                if room_code not in data:
+                    data[room_code] = {"users": [], "messages": []}
+
+                if username not in data[room_code]["users"]:
+                    if len(data[room_code]["users"]) < 2:
+                        data[room_code]["users"].append(username)
+                        save_data(data)
+                    else:
+                        st.error("Room is full. Only 2 users allowed.")
+                        st.stop()
                 st.session_state.logged_in = True
                 st.session_state.room_code = room_code
                 st.session_state.username = username
@@ -62,30 +59,31 @@ if not st.session_state.logged_in:
         st.markdown("</div>", unsafe_allow_html=True)
 
 else:
-    # Chat UI
     room_code = st.session_state.room_code
     username = st.session_state.username
     data = load_data()
 
+    if room_code not in data:
+        st.error("Room not found.")
+        st.stop()
+
     st.success(f"Logged in as {username} in room: {room_code}")
 
-    with st.container():
-        st.markdown("---")
-        st.markdown("<h4>Chat Messages</h4>", unsafe_allow_html=True)
-        chat_box = st.empty()
+    st.markdown("---")
+    st.subheader("Chat Messages")
 
-        # Show messages
-        messages = data[room_code]["messages"]
-        with chat_box:
-            for msg in messages[-50:]:
-                sender = msg["user"]
-                text = msg["message"]
-                time = msg["time"]
-                st.markdown(f"<div style='padding:5px;'><b>{sender}</b> <span style='color:gray;font-size:12px;'>[{time}]</span><br>{text}</div>", unsafe_allow_html=True)
+    chat_box = st.empty()
+    with chat_box:
+        for msg in data[room_code]["messages"][-50:]:
+            st.markdown(
+                f"<div style='padding:5px;margin-bottom:8px;'>"
+                f"<b>{msg['user']}</b> <span style='color:gray;font-size:12px;'>[{msg['time']}]</span><br>"
+                f"{msg['message']}</div>",
+                unsafe_allow_html=True
+            )
 
-    # Message input
     message = st.text_input("Type your message", key="message_input")
-    if st.button("Send", key="send_button"):
+    if st.button("Send"):
         if message.strip():
             timestamp = datetime.now().strftime("%H:%M")
             data[room_code]["messages"].append({
@@ -96,8 +94,7 @@ else:
             save_data(data)
             st.experimental_rerun()
 
-    # Leave room
-    if st.button("Leave Room", key="leave"):
+    if st.button("Leave Room"):
         st.session_state.logged_in = False
         st.session_state.room_code = ""
         st.session_state.username = ""
