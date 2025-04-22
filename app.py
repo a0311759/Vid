@@ -18,7 +18,7 @@ def save_data(data):
     with open(DATA_FILE, 'w') as f:
         json.dump(data, f, indent=4)
 
-st.title("Simple Chat Room")
+st.title("Chat Room")
 
 # Enter room code and username
 room_code = st.text_input("Enter Room Code")
