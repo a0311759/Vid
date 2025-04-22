@@ -1,12 +1,11 @@
 import streamlit as st
 import json
 import os
-import time
 from datetime import datetime
 
 DATA_FILE = "chat_data.json"
 
-# Initialize JSON data file
+# Initialize JSON data file if it doesn't exist
 if not os.path.exists(DATA_FILE):
     with open(DATA_FILE, 'w') as f:
         json.dump({}, f)
@@ -57,23 +56,23 @@ if room_code and username:
                     "time": timestamp
                 })
                 save_data(data)
-                st.experimental_rerun()
 
         st.subheader("Chat Messages:")
 
+        # Create a container for the chat messages
         chat_box = st.empty()
 
-        # Auto-refresh loop for chat display
-        for _ in range(200):  # refresh every 1s for ~3 mins
+        # Display messages in real-time
+        while True:
             data = load_data()
             messages = data[room_code]["messages"]
             with chat_box.container():
                 for msg in messages:
                     st.markdown(f"**{msg['user']}** [{msg['time']}]: {msg['message']}")
-            time.sleep(1)
-            st.experimental_rerun()  # refresh page to show new messages
+            st.experimental_rerun()  # Refresh the page to display new messages
+
     else:
         st.info("Waiting for a slot to join...")
 else:
     st.info("Enter room code and your name to join.")
-        
+    
