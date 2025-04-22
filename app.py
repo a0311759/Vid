@@ -5,7 +5,7 @@ from datetime import datetime
 
 DATA_FILE = "chat_data.json"
 
-# Initialize JSON data file if it doesn't exist
+# Initialize JSON data file
 if not os.path.exists(DATA_FILE):
     with open(DATA_FILE, 'w') as f:
         json.dump({}, f)
@@ -20,19 +20,21 @@ def save_data(data):
 
 st.title("Simple Chat Room")
 
-# Input section
+# Enter room code and username
 room_code = st.text_input("Enter Room Code")
 username = st.text_input("Enter Your Name")
 
 if room_code and username:
     data = load_data()
 
-    # Initialize room if needed
+    # Initialize room if it doesn't exist
     if room_code not in data:
-        data[room_code] = {"users": [], "messages": []}
-        save_data(data)
+        data[room_code] = {
+            "users": [],
+            "messages": []
+        }
 
-    # Register user
+    # Add user if not already in room
     if username not in data[room_code]["users"]:
         if len(data[room_code]["users"]) < 2:
             data[room_code]["users"].append(username)
@@ -40,16 +42,14 @@ if room_code and username:
         else:
             st.warning("Room is full (only 2 users allowed).")
 
+    # Only allow if user is part of room
     if username in data[room_code]["users"]:
         st.success(f"You joined room: {room_code}")
-
-        # Message input
         message = st.text_input("Type your message", key="msg")
 
         if st.button("Send"):
             if message.strip():
                 timestamp = datetime.now().strftime("%H:%M")
-                data = load_data()  # reload before update
                 data[room_code]["messages"].append({
                     "user": username,
                     "message": message,
@@ -57,20 +57,17 @@ if room_code and username:
                 })
                 save_data(data)
 
+        # Refresh button
+        if st.button("Refresh Messages"):
+            st.experimental_rerun()
+
         st.subheader("Chat Messages:")
-
-        # Create a container for the chat messages
-        chat_box = st.empty()
-
-        # Display messages in real-time
-        while True:
-            data = load_data()
-            messages = data[room_code]["messages"]
-            with chat_box.container():
-                for msg in messages:
-                    st.markdown(f"**{msg['user']}** [{msg['time']}]: {msg['message']}")
-            st.experimental_rerun()  # Refresh the page to display new messages
-
+        messages = data[room_code]["messages"]
+        for msg in messages:
+            sender = msg["user"]
+            time = msg["time"]
+            text = msg["message"]
+            st.markdown(f"**{sender}** [{time}]: {text}")
     else:
         st.info("Waiting for a slot to join...")
 else:
