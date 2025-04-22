@@ -57,9 +57,9 @@ if room_code and username:
                 })
                 save_data(data)
 
-        # Refresh button
-        if st.button("Refresh Messages"):
-            st.experimental_rerun()
+        # Refresh new messages
+        if st.button("Refresh New Messages"):
+            data = load_data()  # Reload the latest data
 
         st.subheader("Chat Messages:")
         messages = data[room_code]["messages"]
@@ -72,4 +72,3 @@ if room_code and username:
         st.info("Waiting for a slot to join...")
 else:
     st.info("Enter room code and your name to join.")
-    
