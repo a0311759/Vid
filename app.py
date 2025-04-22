@@ -1,55 +1,70 @@
 import streamlit as st
-import streamlit.components.v1 as components
+import json
+import os
+from datetime import datetime
 
-st.title("Peer-to-Peer Video Chat Room")
+DATA_FILE = "chat_data.json"
 
-room_code = st.text_input("Enter Room Code", max_chars=10)
+# Initialize JSON data file
+if not os.path.exists(DATA_FILE):
+    with open(DATA_FILE, 'w') as f:
+        json.dump({}, f)
 
-if room_code:
-    st.success(f"Joined room: {room_code}")
-    
-    # Embed the HTML + JS for PeerJS-based video chat
-    components.html(f"""
-    <html>
-    <head>
-        <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-    </head>
-    <body>
-        <video id="local-video" autoplay muted playsinline style="width: 45%; border: 2px solid green;"></video>
-        <video id="remote-video" autoplay playsinline style="width: 45%; border: 2px solid blue;"></video>
+def load_data():
+    with open(DATA_FILE, 'r') as f:
+        return json.load(f)
 
-        <script>
-            const room = "{room_code}";
-            const peer = new Peer(room, {{
-                host: 'peerjs-server.herokuapp.com',
-                secure: true,
-                port: 443
-            }});
+def save_data(data):
+    with open(DATA_FILE, 'w') as f:
+        json.dump(data, f, indent=4)
 
-            navigator.mediaDevices.getUserMedia({{ video: true, audio: true }})
-            .then(stream => {{
-                document.getElementById('local-video').srcObject = stream;
+st.title("Simple Chat Room")
 
-                peer.on('call', call => {{
-                    call.answer(stream);
-                    call.on('stream', remoteStream => {{
-                        document.getElementById('remote-video').srcObject = remoteStream;
-                    }});
-                }});
+# Enter room code and username
+room_code = st.text_input("Enter Room Code")
+username = st.text_input("Enter Your Name")
 
-                peer.on('open', id => {{
-                    if (id !== room) {{
-                        const call = peer.call(room, stream);
-                        call.on('stream', remoteStream => {{
-                            document.getElementById('remote-video').srcObject = remoteStream;
-                        }});
-                    }}
-                }});
-            }})
-            .catch(error => {{
-                alert("Camera/Microphone access denied.");
-            }});
-        </script>
-    </body>
-    </html>
-    """, height=500)
+if room_code and username:
+    data = load_data()
+
+    # Initialize room if it doesn't exist
+    if room_code not in data:
+        data[room_code] = {
+            "users": [],
+            "messages": []
+        }
+
+    # Add user if not already in room
+    if username not in data[room_code]["users"]:
+        if len(data[room_code]["users"]) < 2:
+            data[room_code]["users"].append(username)
+            save_data(data)
+        else:
+            st.warning("Room is full (only 2 users allowed).")
+
+    # Only allow if user is part of room
+    if username in data[room_code]["users"]:
+        st.success(f"You joined room: {room_code}")
+        message = st.text_input("Type your message", key="msg")
+
+        if st.button("Send"):
+            if message.strip():
+                timestamp = datetime.now().strftime("%H:%M")
+                data[room_code]["messages"].append({
+                    "user": username,
+                    "message": message,
+                    "time": timestamp
+                })
+                save_data(data)
+
+        st.subheader("Chat Messages:")
+        messages = data[room_code]["messages"]
+        for msg in messages:
+            sender = msg["user"]
+            time = msg["time"]
+            text = msg["message"]
+            st.markdown(f"**{sender}** [{time}]: {text}")
+    else:
+        st.info("Waiting for a slot to join...")
+else:
+    st.info("Enter room code and your name to join.")
