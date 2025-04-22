@@ -1,25 +1,55 @@
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase, WebRtcMode
-import uuid
+import streamlit.components.v1 as components
 
-# App title
-st.title("Private Video Chat Room")
+st.title("Peer-to-Peer Video Chat Room")
 
-# Room code input
-st.subheader("Join or Create a Room")
-room_code = st.text_input("Enter Room Code:", value="", max_chars=10)
+room_code = st.text_input("Enter Room Code", max_chars=10)
 
-if not room_code:
-    st.warning("Please enter a room code to join.")
-else:
-    st.success(f"You're in room: {room_code}")
+if room_code:
+    st.success(f"Joined room: {room_code}")
+    
+    # Embed the HTML + JS for PeerJS-based video chat
+    components.html(f"""
+    <html>
+    <head>
+        <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    </head>
+    <body>
+        <video id="local-video" autoplay muted playsinline style="width: 45%; border: 2px solid green;"></video>
+        <video id="remote-video" autoplay playsinline style="width: 45%; border: 2px solid blue;"></video>
 
-    # Use room code to set a shared signaling namespace
-    webrtc_streamer(
-        key=room_code,
-        mode=WebRtcMode.SENDRECV,
-        rtc_configuration={  # For basic STUN servers
-            "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
-        },
-        media_stream_constraints={"video": True, "audio": True},
-    )
+        <script>
+            const room = "{room_code}";
+            const peer = new Peer(room, {{
+                host: 'peerjs-server.herokuapp.com',
+                secure: true,
+                port: 443
+            }});
+
+            navigator.mediaDevices.getUserMedia({{ video: true, audio: true }})
+            .then(stream => {{
+                document.getElementById('local-video').srcObject = stream;
+
+                peer.on('call', call => {{
+                    call.answer(stream);
+                    call.on('stream', remoteStream => {{
+                        document.getElementById('remote-video').srcObject = remoteStream;
+                    }});
+                }});
+
+                peer.on('open', id => {{
+                    if (id !== room) {{
+                        const call = peer.call(room, stream);
+                        call.on('stream', remoteStream => {{
+                            document.getElementById('remote-video').srcObject = remoteStream;
+                        }});
+                    }}
+                }});
+            }})
+            .catch(error => {{
+                alert("Camera/Microphone access denied.");
+            }});
+        </script>
+    </body>
+    </html>
+    """, height=500)
